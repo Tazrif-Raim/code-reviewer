@@ -1,10 +1,5 @@
-import { createClient } from "@/utils/supabase/server";
+import { Login } from "@/modules/auth/components/Login";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const { data } = await supabase.from("tweets").select();
-  
-  return (
-    <pre>{JSON.stringify(data, null, 2)}</pre>
-  );
+export default function Home() {
+  return <Login />;
 }
