@@ -1,0 +1,73 @@
+'use client';
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Settings } from "lucide-react";
+import { useLlmApiKeyForm } from "./llmApiKeyForm.hooks";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Controller } from "react-hook-form";
+
+export function LlmApiKeyDialog() {
+  const { form, handleSubmit } = useLlmApiKeyForm();
+
+  return (
+    <Dialog>
+      <form id="llm-api-key-form" onSubmit={handleSubmit}>
+        <DialogTrigger asChild>
+          <Button variant="outline">
+            <Settings />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Enter your Gemini API Key</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-3">
+              <Controller
+                name="apiKey"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="llm-api-key-form-apiKey">
+                      API Key
+                    </FieldLabel>
+                    <Input
+                      {...field}
+                      id="llm-api-key-form-apiKey"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Ajxwqds..."
+                      autoComplete="off"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button type="submit" form="llm-api-key-form">
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </form>
+    </Dialog>
+  );
+}
