@@ -11,20 +11,21 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Settings } from "lucide-react";
 import { useLlmApiKeyForm } from "./llmApiKeyForm.hooks";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Controller } from "react-hook-form";
+import { useState } from "react";
 
 export function LlmApiKeyDialog() {
-  const { form, handleSubmit } = useLlmApiKeyForm();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { form, handleSubmit } = useLlmApiKeyForm({ setIsDialogOpen });
 
   return (
-    <Dialog>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <form id="llm-api-key-form" onSubmit={handleSubmit}>
         <DialogTrigger asChild>
           <Button variant="outline">
-            <Settings />
+            Enter Gemini API Key
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
@@ -58,11 +59,11 @@ export function LlmApiKeyDialog() {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" onClick={() => form.reset()}>
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" form="llm-api-key-form">
+            <Button type="submit" form="llm-api-key-form" disabled={form.formState.isSubmitting}>
               Save
             </Button>
           </DialogFooter>
