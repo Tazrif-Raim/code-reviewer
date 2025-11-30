@@ -1,29 +1,28 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { RepoActions } from "./RepoActions";
+import { ReviewRuleActions } from "./ReviewRuleActions";
 import { useRouter } from "next/navigation";
 
-export function RepoCard({
-  repo,
+export function ReviewRuleCard({
+  reviewRule,
 }: {
-  repo: { id: string; ownerName: string; repoName: string };
+  reviewRule: { id: string; title: string };
 }) {
   const router = useRouter();
-  const { id, ownerName, repoName } = repo;
+  const { id, title } = reviewRule;
 
   return (
     <Card
       className="cursor-pointer"
-      onClick={() => router.push(`/repos/${id}`)}
+      onClick={() => router.push(`/review-rules/${id}`)}
     >
       <CardContent className="w-96 flex flex-row justify-between items-center">
-        <div>
-          <div>Repo: {repoName}</div>
-          <div>Owner: {ownerName}</div>
+        <div className="flex-1 overflow-hidden">
+          <div className="truncate">{title}</div>
         </div>
         <div onClick={(e) => e.stopPropagation()}>
-          <RepoActions repoId={id} ownerName={ownerName} repoName={repoName} />
+          <ReviewRuleActions reviewRuleId={id} />
         </div>
       </CardContent>
     </Card>

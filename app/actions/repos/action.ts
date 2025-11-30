@@ -94,7 +94,8 @@ export async function updateRepo(id: string, data: TAddRepoDialogFormValues) {
   const { error: updateError } = await supabase
     .from("repos")
     .update(repoData)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   if (updateError) {
     return { error: "Failed to update repo" };

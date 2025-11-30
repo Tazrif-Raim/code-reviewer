@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import { useLlmApiKeyForm } from "./llmApiKeyForm.hooks";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Controller } from "react-hook-form";
 import { useState } from "react";
+import { KeyRoundIcon } from "lucide-react";
 
 export function LlmApiKeyDialog() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -25,7 +26,7 @@ export function LlmApiKeyDialog() {
       <form id="llm-api-key-form" onSubmit={handleSubmit}>
         <DialogTrigger asChild>
           <Button variant="outline">
-            Enter Gemini API Key
+            <KeyRoundIcon className="not-dark:text-black" />
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
@@ -60,11 +61,19 @@ export function LlmApiKeyDialog() {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline" onClick={() => form.reset()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => form.reset()}
+              >
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" form="llm-api-key-form" disabled={form.formState.isSubmitting}>
+            <Button
+              type="submit"
+              form="llm-api-key-form"
+              disabled={form.formState.isSubmitting}
+            >
               Save
             </Button>
           </DialogFooter>
