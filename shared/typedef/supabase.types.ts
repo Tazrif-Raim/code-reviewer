@@ -122,6 +122,7 @@ export type Database = {
           id: string
           reviewed_pr_id: string
           should_comment: boolean | null
+          status: string
           updated_at: string
           user_id: string
         }
@@ -134,6 +135,7 @@ export type Database = {
           id?: string
           reviewed_pr_id: string
           should_comment?: boolean | null
+          status?: string
           updated_at?: string
           user_id: string
         }
@@ -146,6 +148,7 @@ export type Database = {
           id?: string
           reviewed_pr_id?: string
           should_comment?: boolean | null
+          status?: string
           updated_at?: string
           user_id?: string
         }

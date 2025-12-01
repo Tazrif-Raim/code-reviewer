@@ -3,14 +3,7 @@
 import { createSupabaseServerClient } from "@/shared/utils/supabase/server";
 import { decrypt } from "@/shared/utils/crypto/crypto";
 import { GithubPrCard } from "./GithubPrCard";
-
-interface GitHubPR {
-  number: number;
-  title: string;
-  created_at: string;
-  state: string;
-  id: number;
-}
+import { Octokit } from "octokit";
 
 export async function ListGithubPrs({ repoId }: { repoId: string }) {
   const supabase = await createSupabaseServerClient();
@@ -38,22 +31,15 @@ export async function ListGithubPrs({ repoId }: { repoId: string }) {
   const token = decrypt(repo.fine_grained_token);
 
   try {
-    const response = await fetch(
-      `https://api.github.com/repos/${repo.owner_name}/${repo.repo_name}/pulls?state=closed`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      }
-    );
+    const octokit = new Octokit({
+      auth: token,
+    });
 
-    if (!response.ok) {
-      return <div>Error fetching pull requests from GitHub.</div>;
-    }
-
-    const prs: GitHubPR[] = await response.json();
+    const { data: prs } = await octokit.rest.pulls.list({
+      owner: repo.owner_name,
+      repo: repo.repo_name,
+      state: "closed",
+    });
 
     if (!prs || prs.length === 0) {
       return (
