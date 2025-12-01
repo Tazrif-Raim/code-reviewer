@@ -71,15 +71,56 @@ export type Database = {
         }
         Relationships: []
       }
+      reviewed_prs: {
+        Row: {
+          created_at: string
+          github_pr_id: number
+          id: string
+          pr_number: number
+          pr_title: string | null
+          repo_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          github_pr_id: number
+          id?: string
+          pr_number: number
+          pr_title?: string | null
+          repo_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          github_pr_id?: number
+          id?: string
+          pr_number?: number
+          pr_title?: string | null
+          repo_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviewed_prs_repo_id_fkey"
+            columns: ["repo_id"]
+            isOneToOne: false
+            referencedRelation: "repos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           commented_at: string | null
           comments: Json | null
+          commit_hash: string
+          commit_message: string
           created_at: string
-          github_pr_id: number
-          github_pr_number: number
           id: string
-          repo_id: string
+          reviewed_pr_id: string
           should_comment: boolean | null
           updated_at: string
           user_id: string
@@ -87,11 +128,11 @@ export type Database = {
         Insert: {
           commented_at?: string | null
           comments?: Json | null
+          commit_hash: string
+          commit_message: string
           created_at?: string
-          github_pr_id: number
-          github_pr_number: number
           id?: string
-          repo_id: string
+          reviewed_pr_id: string
           should_comment?: boolean | null
           updated_at?: string
           user_id: string
@@ -99,21 +140,21 @@ export type Database = {
         Update: {
           commented_at?: string | null
           comments?: Json | null
+          commit_hash?: string
+          commit_message?: string
           created_at?: string
-          github_pr_id?: number
-          github_pr_number?: number
           id?: string
-          repo_id?: string
+          reviewed_pr_id?: string
           should_comment?: boolean | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "reviews_repo_id_fkey"
-            columns: ["repo_id"]
+            foreignKeyName: "reviews_pr_id_fkey"
+            columns: ["reviewed_pr_id"]
             isOneToOne: false
-            referencedRelation: "repos"
+            referencedRelation: "reviewed_prs"
             referencedColumns: ["id"]
           },
         ]
