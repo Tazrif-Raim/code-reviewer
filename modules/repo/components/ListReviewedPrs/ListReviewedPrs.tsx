@@ -17,7 +17,7 @@ export async function ListReviewedPrs({ id }: { id: string }) {
 
   const { data: reviewedPrs, error: fetchError } = await supabase
     .from("reviewed_prs")
-    .select("id,pr_number,pr_title,github_pr_id")
+    .select("id,pr_number,pr_title")
     .eq("repo_id", id)
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
@@ -41,7 +41,6 @@ export async function ListReviewedPrs({ id }: { id: string }) {
           <ReviewedPrCard
             key={pr.id}
             pr={{
-              githubPrId: pr.github_pr_id,
               prNumber: pr.pr_number,
               prTitle: pr.pr_title || "Untitled PR",
             }}

@@ -54,9 +54,8 @@ export async function ListGithubPrs({ repoId }: { repoId: string }) {
         <div className="flex flex-col gap-4">
           {prs.map((pr) => (
             <GithubPrCard
-              key={pr.id}
+              key={pr.node_id}
               pr={{
-                id: pr.id,
                 number: pr.number,
                 title: pr.title,
               }}

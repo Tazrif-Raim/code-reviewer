@@ -20,16 +20,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
 export function NewReviewForm({
-  githubPrId,
+  githubPrNumber,
   repoId,
   reviewRules,
 }: {
-  githubPrId: number;
+  githubPrNumber: number;
   repoId: string;
   reviewRules: Array<{ id: string; title: string }>;
 }) {
   const router = useRouter();
-  const { form, handleSubmit } = useNewReview({ githubPrId });
+  const { form, handleSubmit } = useNewReview({ repoId, githubPrNumber });
 
   return (
     <div className="w-full p-6 grid place-items-center">
@@ -136,7 +136,7 @@ export function NewReviewForm({
                 variant="outline"
                 type="button"
                 onClick={() =>
-                  router.push(`/repos/${repoId}/prs/${githubPrId}/reviews`)
+                  router.push(`/repos/${repoId}/prs/${githubPrNumber}/reviews`)
                 }
               >
                 Cancel

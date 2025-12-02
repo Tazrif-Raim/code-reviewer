@@ -6,19 +6,19 @@ import { useRouter } from "next/navigation";
 export function ReviewCard({
   review,
   repoId,
-  githubPrId,
+  githubPrNumber,
 }: {
   review: {
     id: string;
     commitMessage: string;
     updatedAt: string;
-    commentsCount: number;
+    status: string;
   };
   repoId: string;
-  githubPrId: number;
+  githubPrNumber: number;
 }) {
   const router = useRouter();
-  const { id, commitMessage, updatedAt, commentsCount } = review;
+  const { id, commitMessage, updatedAt, status } = review;
 
   const formattedDate = new Date(updatedAt).toLocaleString();
 
@@ -26,7 +26,7 @@ export function ReviewCard({
     <Card
       className="cursor-pointer"
       onClick={() =>
-        router.push(`/repos/${repoId}/prs/${githubPrId}/reviews/${id}`)
+        router.push(`/repos/${repoId}/prs/${githubPrNumber}/reviews/${id}`)
       }
     >
       <CardContent className="w-96">
@@ -36,7 +36,7 @@ export function ReviewCard({
             Updated: {formattedDate}
           </div>
           <div className="text-sm text-gray-400">
-            Comments: {commentsCount}
+            Status: {status}
           </div>
         </div>
       </CardContent>

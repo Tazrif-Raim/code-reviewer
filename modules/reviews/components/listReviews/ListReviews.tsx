@@ -5,10 +5,10 @@ import { ReviewCard } from "./ReviewCard";
 
 export async function ListReviews({
   repoId,
-  githubPrId,
+  githubPrNumber,
 }: {
   repoId: string;
-  githubPrId: number;
+  githubPrNumber: number;
 }) {
   const supabase = await createSupabaseServerClient();
 
@@ -24,21 +24,20 @@ export async function ListReviews({
   const { data: reviewedPr, error: reviewedPrError } = await supabase
     .from("reviewed_prs")
     .select("id")
-    .eq("github_pr_id", githubPrId)
+    .eq("pr_number", githubPrNumber)
+    .eq("repo_id", repoId)
     .eq("user_id", user.id)
     .single();
 
   if (reviewedPrError || !reviewedPr) {
     return (
-      <div className="text-white">
-        No reviews found for this pull request.
-      </div>
+      <div className="text-white">No reviews found for this pull request.</div>
     );
   }
 
   const { data: reviews, error: fetchError } = await supabase
     .from("reviews")
-    .select("id,commit_hash,commit_message,updated_at,comments")
+    .select("id,commit_hash,commit_message,updated_at,comments,status")
     .eq("reviewed_pr_id", reviewedPr.id)
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
@@ -49,9 +48,7 @@ export async function ListReviews({
 
   if (!reviews || reviews.length === 0) {
     return (
-      <div className="text-white">
-        No reviews found for this pull request.
-      </div>
+      <div className="text-white">No reviews found for this pull request.</div>
     );
   }
 
@@ -59,8 +56,6 @@ export async function ListReviews({
     <>
       <div className="flex flex-col gap-4">
         {reviews.map((review) => {
-          const commentsArray = Array.isArray(review.comments) ? review.comments : [];
-          const commentsCount = commentsArray.length;
           const firstLine = review.commit_message.split("\n")[0];
 
           return (
@@ -70,10 +65,10 @@ export async function ListReviews({
                 id: review.id,
                 commitMessage: firstLine,
                 updatedAt: review.updated_at,
-                commentsCount,
+                status: review.status,
               }}
               repoId={repoId}
-              githubPrId={githubPrId}
+              githubPrNumber={githubPrNumber}
             />
           );
         })}

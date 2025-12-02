@@ -74,7 +74,7 @@ export type Database = {
       reviewed_prs: {
         Row: {
           created_at: string
-          github_pr_id: number
+          github_pr_node_id: string
           id: string
           pr_number: number
           pr_title: string | null
@@ -84,7 +84,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          github_pr_id: number
+          github_pr_node_id: string
           id?: string
           pr_number: number
           pr_title?: string | null
@@ -94,7 +94,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          github_pr_id?: number
+          github_pr_node_id?: string
           id?: string
           pr_number?: number
           pr_title?: string | null

@@ -7,16 +7,15 @@ export function GithubPrCard({
   pr,
   repoId,
 }: {
-  pr: { id: number; number: number; title: string };
+  pr: { number: number; title: string };
   repoId: string;
 }) {
   const router = useRouter();
-  const { id, number, title } = pr;
-
+  const { number, title } = pr;
   return (
     <Card
       className="cursor-pointer"
-      onClick={() => router.push(`/repos/${repoId}/prs/${id}/reviews`)}
+      onClick={() => router.push(`/repos/${repoId}/prs/${number}/reviews`)}
     >
       <CardContent className="w-96">
         <div>

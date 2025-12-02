@@ -4,20 +4,20 @@ import Link from "next/link";
 
 export function ReviewsContainer({
   repoId,
-  githubPrId,
+  githubPrNumber,
 }: {
   repoId: string;
-  githubPrId: number;
+  githubPrNumber: number;
 }) {
   return (
     <>
       <Button asChild>
-        <Link href={`/repos/${repoId}/prs/${githubPrId}/reviews/new`}>
+        <Link href={`/repos/${repoId}/prs/${githubPrNumber}/reviews/new`}>
           New Review
         </Link>
       </Button>
       <div className="my-10 grid place-items-center">
-        <ListReviews repoId={repoId} githubPrId={githubPrId} />
+        <ListReviews repoId={repoId} githubPrNumber={githubPrNumber} />
       </div>
     </>
   );

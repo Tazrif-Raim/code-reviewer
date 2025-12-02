@@ -4,10 +4,10 @@ import { createSupabaseServerClient } from "@/shared/utils/supabase/server";
 import { NewReviewForm } from "./NewReviewForm";
 
 export async function NewReview({
-  githubPrId,
+  githubPrNumber,
   repoId,
 }: {
-  githubPrId: number;
+  githubPrNumber: number;
   repoId: string;
 }) {
   const supabase = await createSupabaseServerClient();
@@ -33,7 +33,7 @@ export async function NewReview({
 
   return (
     <NewReviewForm
-      githubPrId={githubPrId}
+      githubPrNumber={githubPrNumber}
       repoId={repoId}
       reviewRules={reviewRules || []}
     />
