@@ -1,5 +1,7 @@
 "use server";
 
+export const maxDuration = 60;
+
 import { Octokit } from "octokit";
 import { createSupabaseServerClient } from "@/shared/utils/supabase/server";
 import { decrypt } from "@/shared/utils/crypto/crypto";
@@ -8,6 +10,7 @@ import { generatePrDiff } from "./diff";
 import { buildReviewPrompt, ReviewRule } from "./prompt";
 import { callGeminiApi } from "./gemini";
 import { EReviewStatus } from "@/shared/typedef/enums";
+import { waitUntil } from "@vercel/functions";
 
 export interface StartReviewInput {
   repoId: string;
@@ -111,19 +114,21 @@ export async function startReview(
       return { success: false, error: "Failed to create review record" };
     }
 
-    processReview({
-      reviewId: review.id,
-      userId: user.id,
-      repoId: input.repoId,
-      prNumber: input.githubPrNumber,
-      owner: repo.owner_name,
-      repoName: repo.repo_name,
-      token,
-      reviewRuleIds: input.reviewRuleIds,
-      customPrompt: input.customPrompt,
-    }).catch((error) => {
-      console.error("Background review processing failed:", error);
-    });
+    waitUntil(
+      processReview({
+        reviewId: review.id,
+        userId: user.id,
+        repoId: input.repoId,
+        prNumber: input.githubPrNumber,
+        owner: repo.owner_name,
+        repoName: repo.repo_name,
+        token,
+        reviewRuleIds: input.reviewRuleIds,
+        customPrompt: input.customPrompt,
+      }).catch((error) => {
+        console.error("Background review processing failed:", error);
+      })
+    );
 
     return { success: true, reviewId: review.id };
   } catch (error) {
