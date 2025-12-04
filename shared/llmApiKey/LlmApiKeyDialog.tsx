@@ -49,7 +49,6 @@ export function LlmApiKeyDialog() {
                       aria-invalid={fieldState.invalid}
                       placeholder="Ajxwqds..."
                       autoComplete="off"
-                      type="password"
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />

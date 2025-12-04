@@ -38,7 +38,7 @@ export async function ListGithubPrs({ repoId }: { repoId: string }) {
     const { data: prs } = await octokit.rest.pulls.list({
       owner: repo.owner_name,
       repo: repo.repo_name,
-      state: "closed",
+      state: "open",
     });
 
     if (!prs || prs.length === 0) {

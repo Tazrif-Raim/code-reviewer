@@ -94,7 +94,6 @@ export function AddRepoDialogForm() {
                       aria-invalid={fieldState.invalid}
                       placeholder="github_pat_..."
                       autoComplete="off"
-                      type="password"
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
