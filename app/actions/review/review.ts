@@ -1,7 +1,5 @@
 "use server";
 
-export const maxDuration = 60;
-
 import { Octokit } from "octokit";
 import { createSupabaseServerClient } from "@/shared/utils/supabase/server";
 import { decrypt } from "@/shared/utils/crypto/crypto";
