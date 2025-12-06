@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldError,
   FieldGroup,
@@ -18,6 +19,7 @@ import { languages } from "@codemirror/language-data";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 export function NewReviewForm({
   githubPrNumber,
@@ -85,6 +87,35 @@ export function NewReviewForm({
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
                       )}
+                    </Field>
+                  )}
+                />
+                <Controller
+                  name="shouldComment"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field
+                      orientation="horizontal"
+                      data-invalid={fieldState.invalid}
+                    >
+                      <FieldContent>
+                        <FieldLabel htmlFor="switch-shouldComment">
+                          Auto comment on PR
+                        </FieldLabel>
+                        <FieldDescription>
+                          The system will post your review directly to the PR
+                        </FieldDescription>
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </FieldContent>
+                      <Switch
+                        id="switch-shouldComment"
+                        name={field.name}
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        aria-invalid={fieldState.invalid}
+                      />
                     </Field>
                   )}
                 />

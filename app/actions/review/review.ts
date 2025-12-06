@@ -14,6 +14,7 @@ export interface StartReviewInput {
   githubPrNumber: number;
   reviewRuleIds: string[];
   customPrompt?: string;
+  shouldComment: boolean;
 }
 
 export interface StartReviewResult {
@@ -101,7 +102,7 @@ export async function startReview(
         commit_hash: latestCommit.sha,
         commit_message: latestCommit.message,
         status: EReviewStatus.PENDING,
-        should_comment: false,
+        should_comment: input.shouldComment,
         comments: null,
       })
       .select("id")
@@ -123,6 +124,7 @@ export async function startReview(
         token,
         reviewRuleIds: input.reviewRuleIds,
         customPrompt: input.customPrompt,
+        shouldComment: input.shouldComment,
       });
     });
 
@@ -142,6 +144,7 @@ interface ProcessReviewInput {
   repoName: string;
   token: string;
   reviewRuleIds: string[];
+  shouldComment: boolean;
   customPrompt?: string;
 }
 
@@ -200,6 +203,8 @@ async function processReview(input: ProcessReviewInput): Promise<void> {
         reviewId: input.reviewId,
         prompt,
         encryptedLlmKey: userSecret.llm_api_key,
+        shouldComment: input.shouldComment,
+        githubToken: input.token,
       }),
     });
 

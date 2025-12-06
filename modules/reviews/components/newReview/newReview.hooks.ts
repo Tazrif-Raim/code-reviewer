@@ -30,6 +30,7 @@ export function useNewReview({
         githubPrNumber,
         reviewRuleIds: data.reviewRuleIds,
         customPrompt: data.customPrompt,
+        shouldComment: data.shouldComment,
       });
 
       if (result.success) {

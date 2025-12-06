@@ -1,5 +1,7 @@
 "use server";
 
+import { Database } from "@/shared/typedef/supabase.types";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { Octokit } from "octokit";
 
 const IGNORE_EXTENSIONS = [".png", ".jpg", ".svg", ".pdf", ".zip", ".lock"];
@@ -132,4 +134,80 @@ export async function getLatestCommit(
     sha: headSha,
     message: commitData.commit.message,
   };
+}
+
+export async function commentOnPr(
+  reviewId: string,
+  aiComments: {
+    body?: string;
+    event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+    comments?: Array<{
+      path: string;
+      body: string;
+      line: number;
+      side?: "RIGHT" | "LEFT";
+      start_line?: number;
+      start_side?: "RIGHT" | "LEFT";
+    }>;
+  },
+  supabase: SupabaseClient<Database>,
+  githubToken: string
+): Promise<void> {
+  const { data: review } = await supabase
+    .from("reviews")
+    .select(
+      `
+      id,
+      commit_hash,
+      reviewed_pr:reviewed_prs (
+        pr_number,
+        repo:repos (
+          owner_name,
+          repo_name
+        )
+      )
+    `
+    )
+    .eq("id", reviewId)
+    .single();
+
+  if (!review?.reviewed_pr) {
+    throw new Error("Review or PR not found");
+  }
+
+  const reviewedPr = review.reviewed_pr as {
+    pr_number: number;
+    repo: { owner_name: string; repo_name: string } | null;
+  };
+
+  if (!reviewedPr.repo) {
+    throw new Error("Repository not found");
+  }
+
+  const octokit = new Octokit({ auth: githubToken });
+
+  await octokit.rest.pulls.createReview({
+    owner: reviewedPr.repo.owner_name,
+    repo: reviewedPr.repo.repo_name,
+    pull_number: reviewedPr.pr_number,
+    commit_id: review.commit_hash,
+    body: aiComments.body || "AI Code Review",
+    event: aiComments.event,
+    comments: aiComments.comments?.map((comment) => ({
+      path: comment.path,
+      body: comment.body,
+      line: comment.line,
+      side: comment.side || "RIGHT",
+      start_line: comment.start_line,
+      start_side: comment.start_side,
+    })),
+  });
+
+  await supabase
+    .from("reviews")
+    .update({
+      commented_at: new Date().toISOString(),
+      should_comment: true,
+    })
+    .eq("id", reviewId);
 }
