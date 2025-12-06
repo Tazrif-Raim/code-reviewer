@@ -7,6 +7,7 @@ import { getLatestCommit, getPrDetails } from "./github";
 import { generatePrDiff } from "./diff";
 import { buildReviewPrompt, ReviewRule } from "./prompt";
 import { EReviewStatus } from "@/shared/typedef/enums";
+import { after } from "next/server";
 
 export interface StartReviewInput {
   repoId: string;
@@ -110,18 +111,19 @@ export async function startReview(
       return { success: false, error: "Failed to create review record" };
     }
 
-    processReview({
-      reviewId: review.id,
-      userId: user.id,
-      repoId: input.repoId,
-      prNumber: input.githubPrNumber,
-      owner: repo.owner_name,
-      repoName: repo.repo_name,
-      token,
-      reviewRuleIds: input.reviewRuleIds,
-      customPrompt: input.customPrompt,
-    }).catch((error) => {
-      console.error("Background review processing failed:", error);
+    after(async () => {
+      console.log("Starting background preparation for review:", review.id);
+      await processReview({
+        reviewId: review.id,
+        userId: user.id,
+        repoId: input.repoId,
+        prNumber: input.githubPrNumber,
+        owner: repo.owner_name,
+        repoName: repo.repo_name,
+        token,
+        reviewRuleIds: input.reviewRuleIds,
+        customPrompt: input.customPrompt,
+      });
     });
 
     return { success: true, reviewId: review.id };
