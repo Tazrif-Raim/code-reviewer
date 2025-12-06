@@ -6,9 +6,7 @@ import { decrypt } from "@/shared/utils/crypto/crypto";
 import { getLatestCommit, getPrDetails } from "./github";
 import { generatePrDiff } from "./diff";
 import { buildReviewPrompt, ReviewRule } from "./prompt";
-import { callGeminiApi } from "./gemini";
 import { EReviewStatus } from "@/shared/typedef/enums";
-import { waitUntil } from "@vercel/functions";
 
 export interface StartReviewInput {
   repoId: string;
@@ -112,21 +110,19 @@ export async function startReview(
       return { success: false, error: "Failed to create review record" };
     }
 
-    waitUntil(
-      processReview({
-        reviewId: review.id,
-        userId: user.id,
-        repoId: input.repoId,
-        prNumber: input.githubPrNumber,
-        owner: repo.owner_name,
-        repoName: repo.repo_name,
-        token,
-        reviewRuleIds: input.reviewRuleIds,
-        customPrompt: input.customPrompt,
-      }).catch((error) => {
-        console.error("Background review processing failed:", error);
-      })
-    );
+    processReview({
+      reviewId: review.id,
+      userId: user.id,
+      repoId: input.repoId,
+      prNumber: input.githubPrNumber,
+      owner: repo.owner_name,
+      repoName: repo.repo_name,
+      token,
+      reviewRuleIds: input.reviewRuleIds,
+      customPrompt: input.customPrompt,
+    }).catch((error) => {
+      console.error("Background review processing failed:", error);
+    });
 
     return { success: true, reviewId: review.id };
   } catch (error) {
@@ -190,18 +186,24 @@ async function processReview(input: ProcessReviewInput): Promise<void> {
       );
     }
 
-    const apiKey = decrypt(userSecret.llm_api_key);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-    const reviewPayload = await callGeminiApi(apiKey, prompt);
+    const res = await fetch(`${baseUrl}/api/process-review`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-secret-key": process.env.INTERNAL_API_SECRET || "",
+      },
+      body: JSON.stringify({
+        reviewId: input.reviewId,
+        prompt,
+        encryptedLlmKey: userSecret.llm_api_key,
+      }),
+    });
 
-    await supabase
-      .from("reviews")
-      .update({
-        status: EReviewStatus.COMPLETED,
-        comments: JSON.parse(JSON.stringify(reviewPayload)),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", input.reviewId);
+    if (!res.ok) {
+      throw new Error(`Failed to queue review processing`);
+    }
   } catch (error) {
     console.error("Process review error:", error);
 

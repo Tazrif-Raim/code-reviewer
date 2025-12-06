@@ -12,6 +12,9 @@ interface ReviewPollingProps {
 export function ReviewPolling({ reviewId }: ReviewPollingProps) {
   const router = useRouter();
   const [dots, setDots] = useState("");
+  // ============ TODO: REMOVE - TEMPORARY TIMER ============
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  // =========================================================
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -34,9 +37,18 @@ export function ReviewPolling({ reviewId }: ReviewPollingProps) {
       setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
     }, 500);
 
+    // ============ TODO: REMOVE - TEMPORARY TIMER ============
+    const timerInterval = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    // =========================================================
+
     return () => {
       clearInterval(interval);
       clearInterval(dotsInterval);
+      // ============ TODO: REMOVE - TEMPORARY TIMER ============
+      clearInterval(timerInterval);
+      // =========================================================
     };
   }, [reviewId, router]);
 
@@ -50,6 +62,11 @@ export function ReviewPolling({ reviewId }: ReviewPollingProps) {
         <p className="text-muted-foreground">
           AI is analyzing your code changes. This may take a minute.
         </p>
+        {/* ============ TODO: REMOVE - TEMPORARY TIMER ============ */}
+        <p className="text-sm text-muted-foreground font-mono">
+          {elapsedSeconds}s elapsed
+        </p>
+        {/* =========================================================== */}
       </div>
     </div>
   );
