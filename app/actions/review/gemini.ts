@@ -61,7 +61,7 @@ export async function callGeminiApi(
     apiKey,
   });
 
-  const model = google("gemini-2.5-pro");
+  const model = google("gemini-2.5-flash");
 
   const { object } = await generateObject({
     model,
