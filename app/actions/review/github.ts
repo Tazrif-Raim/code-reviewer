@@ -140,7 +140,7 @@ export async function commentOnPr(
   reviewId: string,
   aiComments: {
     body?: string;
-    event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+    event: "COMMENT";
     comments?: Array<{
       path: string;
       body: string;

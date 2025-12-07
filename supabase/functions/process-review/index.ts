@@ -17,7 +17,7 @@ const reviewSchema = z.object({
     .optional()
     .describe("Overall review summary with key findings (markdown supported)"),
   event: z
-    .enum(["APPROVE", "REQUEST_CHANGES", "COMMENT"])
+    .enum(["COMMENT"])
     .describe("Review verdict"),
   comments: z
     .array(
@@ -47,7 +47,7 @@ const reviewSchema = z.object({
 
 interface GitHubReviewPayload {
   body?: string;
-  event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+  event: "COMMENT";
   comments?: Array<{
     path: string;
     line: number;

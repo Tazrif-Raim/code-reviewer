@@ -15,7 +15,7 @@ export interface GitHubInlineComment {
 
 export interface GitHubReviewPayload {
   body?: string;
-  event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+  event: "COMMENT";
   comments?: GitHubInlineComment[];
 }
 
@@ -24,16 +24,12 @@ const reviewSchema = z.object({
     .string()
     .optional()
     .describe("Overall review summary with key findings (markdown supported)"),
-  event: z
-    .enum(["APPROVE", "REQUEST_CHANGES", "COMMENT"])
-    .describe("Review verdict"),
+  event: z.enum(["COMMENT"]).describe("Review verdict"),
   comments: z
     .array(
       z.object({
         path: z.string().describe("File path relative to repository root"),
-        line: z
-          .number()
-          .describe("Line number in the new version of the file"),
+        line: z.number().describe("Line number in the new version of the file"),
         side: z
           .enum(["RIGHT", "LEFT"])
           .optional()
