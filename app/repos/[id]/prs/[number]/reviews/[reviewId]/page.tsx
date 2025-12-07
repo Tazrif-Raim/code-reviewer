@@ -10,7 +10,9 @@ export default async function ReviewComments(
   const { reviewId } = await props.params;
   const supabase = await createSupabaseServerClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
     return <div>Please log in to view review comments.</div>;
   }
@@ -41,9 +43,19 @@ export default async function ReviewComments(
     );
   }
 
-  return (
-    <pre>
-      {JSON.stringify(review.comments, null, 2)}
-    </pre>
-  )
+  if (review.status === EReviewStatus.FAILED_TO_COMMENT) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="text-yellow-500 text-6xl">!</div>
+        <h2 className="text-xl font-semibold">Failed to Comment on PR</h2>
+        <p className="text-muted-foreground">
+          The review was processed, but commenting on the Pull Request failed.
+          Please check the logs and try again.
+        </p>
+        <pre>{JSON.stringify(review.comments, null, 2)}</pre>
+      </div>
+    );
+  }
+
+  return <pre>{JSON.stringify(review.comments, null, 2)}</pre>;
 }

@@ -7,6 +7,7 @@ import { z } from "npm:zod";
 const EReviewStatus = {
   PENDING: "pending",
   COMPLETED: "completed",
+  FAILED_TO_COMMENT: "failed_to_comment",
   FAILED: "failed",
 } as const;
 
@@ -22,11 +23,13 @@ const reviewSchema = z.object({
     .array(
       z.object({
         path: z.string().describe("File path relative to repository root"),
-        line: z.number().describe("Line number in the new version of the file"),
+        line: z
+          .number()
+          .describe("Line number in the new version of the file to comment on"),
         side: z
           .enum(["RIGHT", "LEFT"])
           .optional()
-          .describe("Which side of the diff to comment on"),
+          .describe("Which side of the diff: RIGHT for new code, LEFT for old code. Defaults to RIGHT."),
         body: z.string().describe("Comment message (markdown supported)"),
         start_line: z
           .number()
@@ -47,9 +50,9 @@ interface GitHubReviewPayload {
   event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
   comments?: Array<{
     path: string;
-    body: string;
     line: number;
     side?: "RIGHT" | "LEFT";
+    body: string;
     start_line?: number;
     start_side?: "RIGHT" | "LEFT";
   }>;
@@ -63,13 +66,14 @@ interface ExtendedGlobal {
 
 async function callGeminiApi(
   apiKey: string,
-  prompt: string
+  prompt: string,
+  aiModel: string
 ): Promise<GitHubReviewPayload> {
   const google = createGoogleGenerativeAI({
     apiKey,
   });
 
-  const model = google("gemini-2.5-pro");
+  const model = google(aiModel);
 
   const { object } = await generateObject({
     model,
@@ -116,22 +120,28 @@ async function commentOnPr(
 
   const octokit = new Octokit({ auth: githubToken });
 
-  await octokit.rest.pulls.createReview({
-    owner: prDetails.owner,
-    repo: prDetails.repoName,
-    pull_number: prDetails.prNumber,
-    commit_id: review.commit_hash,
-    body: aiComments.body || "AI Code Review",
-    event: aiComments.event,
-    comments: aiComments.comments?.map((comment) => ({
-      path: comment.path,
-      body: comment.body,
-      line: comment.line,
-      side: comment.side || "RIGHT",
-      start_line: comment.start_line,
-      start_side: comment.start_side,
-    })),
-  });
+  await octokit.request(
+    "POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews",
+    {
+      owner: prDetails.owner,
+      repo: prDetails.repoName,
+      pull_number: prDetails.prNumber,
+      commit_id: review.commit_hash,
+      body: aiComments.body || "AI Code Review",
+      event: aiComments.event,
+      comments: aiComments.comments?.map((comment) => ({
+        path: comment.path,
+        line: comment.line,
+        side: comment.side || "RIGHT",
+        body: comment.body,
+        start_line: comment.start_line,
+        start_side: comment.start_side,
+      })),
+      headers: {
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    }
+  );
 
   await supabase
     .from("reviews")
@@ -148,8 +158,15 @@ Deno.serve(async (req) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { reviewId, llmApiKey, githubToken, prompt, shouldComment, prDetails } =
-    await req.json();
+  const {
+    reviewId,
+    llmApiKey,
+    githubToken,
+    prompt,
+    shouldComment,
+    prDetails,
+    aiModel,
+  } = await req.json();
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -158,7 +175,7 @@ Deno.serve(async (req) => {
 
   const longRunningTask = async () => {
     try {
-      const aiComments = await callGeminiApi(llmApiKey, prompt);
+      const aiComments = await callGeminiApi(llmApiKey, prompt, aiModel);
 
       await supabase
         .from("reviews")
@@ -170,13 +187,28 @@ Deno.serve(async (req) => {
         .eq("id", reviewId);
 
       if (shouldComment) {
-        await commentOnPr(
-          reviewId,
-          aiComments,
-          supabase,
-          githubToken,
-          prDetails
-        );
+        try {
+          await commentOnPr(
+            reviewId,
+            aiComments,
+            supabase,
+            githubToken,
+            prDetails
+          );
+        } catch (error) {
+          console.error(
+            `Failed to comment on PR for review ${reviewId}:`,
+            error
+          );
+          await supabase
+            .from("reviews")
+            .update({
+              status: EReviewStatus.FAILED_TO_COMMENT,
+              comments: aiComments,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", reviewId);
+        }
       }
     } catch (error) {
       console.error(`Review ${reviewId} failed:`, error);

@@ -2,6 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Field,
   FieldContent,
   FieldDescription,
@@ -20,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { MODELS } from "./newReview.schema";
 
 export function NewReviewForm({
   githubPrNumber,
@@ -87,6 +96,48 @@ export function NewReviewForm({
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
                       )}
+                    </Field>
+                  )}
+                />
+                <Controller
+                  name="model"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field
+                      orientation="responsive"
+                      data-invalid={fieldState.invalid}
+                    >
+                      <FieldContent>
+                        <FieldLabel htmlFor="form-rhf-select-model">
+                          Model
+                        </FieldLabel>
+                        <FieldDescription>
+                          Select the AI model to use for the review
+                        </FieldDescription>
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </FieldContent>
+                      <Select
+                        name={field.name}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          id="form-rhf-select-model"
+                          aria-invalid={fieldState.invalid}
+                          className="min-w-[120px]"
+                        >
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                          {MODELS.map((model) => (
+                            <SelectItem key={model.value} value={model.value}>
+                              {model.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </Field>
                   )}
                 />

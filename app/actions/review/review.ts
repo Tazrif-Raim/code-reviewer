@@ -15,6 +15,7 @@ export interface StartReviewInput {
   reviewRuleIds: string[];
   customPrompt?: string;
   shouldComment: boolean;
+  aiModel: string;
 }
 
 export interface StartReviewResult {
@@ -125,6 +126,7 @@ export async function startReview(
         reviewRuleIds: input.reviewRuleIds,
         customPrompt: input.customPrompt,
         shouldComment: input.shouldComment,
+        aiModel: input.aiModel,
       });
     });
 
@@ -146,6 +148,7 @@ interface ProcessReviewInput {
   reviewRuleIds: string[];
   shouldComment: boolean;
   customPrompt?: string;
+  aiModel: string;
 }
 
 async function processReview(input: ProcessReviewInput): Promise<void> {
@@ -207,6 +210,7 @@ async function processReview(input: ProcessReviewInput): Promise<void> {
         llmApiKey: llmKey,
         shouldComment: input.shouldComment,
         githubToken: input.token,
+        aiModel: input.aiModel,
         prDetails: {
           owner: input.owner,
           repoName: input.repoName,
