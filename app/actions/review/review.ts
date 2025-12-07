@@ -199,7 +199,6 @@ async function processReview(input: ProcessReviewInput): Promise<void> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}`,
         "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
       },
       body: JSON.stringify({
