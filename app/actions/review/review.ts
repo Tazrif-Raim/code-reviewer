@@ -114,7 +114,6 @@ export async function startReview(
     }
 
     after(async () => {
-      console.log("Starting background preparation for review:", review.id);
       await processReview({
         reviewId: review.id,
         userId: user.id,
@@ -208,14 +207,7 @@ async function processReview(input: ProcessReviewInput): Promise<void> {
         reviewId: input.reviewId,
         prompt,
         llmApiKey: llmKey,
-        shouldComment: input.shouldComment,
-        githubToken: input.token,
         aiModel: input.aiModel,
-        prDetails: {
-          owner: input.owner,
-          repoName: input.repoName,
-          prNumber: input.prNumber,
-        },
       }),
     }).catch((error) => {
       console.error("Failed to invoke edge function:", error);

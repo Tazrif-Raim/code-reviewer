@@ -2,12 +2,7 @@
 
 import { Octokit } from "octokit";
 import { createTwoFilesPatch } from "diff";
-import {
-  getPrDetails,
-  getPrFiles,
-  getFileContent,
-  PrDetails,
-} from "./github";
+import { getPrDetails, getPrFiles, getFileContent, PrDetails } from "./github";
 
 export interface FileDiff {
   filename: string;
@@ -20,7 +15,11 @@ export async function generatePrDiff(
   owner: string,
   repo: string,
   prNumber: number
-): Promise<{ prDetails: PrDetails; diffs: FileDiff[]; fullDiffContent: string }> {
+): Promise<{
+  prDetails: PrDetails;
+  diffs: FileDiff[];
+  fullDiffContent: string;
+}> {
   const prDetails = await getPrDetails(octokit, owner, repo, prNumber);
 
   const files = await getPrFiles(octokit, owner, repo, prNumber);
@@ -35,19 +34,29 @@ export async function generatePrDiff(
 
     if (file.status !== "added") {
       promises.push(
-        getFileContent(octokit, owner, repo, file.filename, prDetails.baseSha)
-          .then((lines) => {
-            oldContent = lines.join("\n");
-          })
+        getFileContent(
+          octokit,
+          owner,
+          repo,
+          file.filename,
+          prDetails.baseSha
+        ).then((lines) => {
+          oldContent = lines.join("\n");
+        })
       );
     }
 
     if (file.status !== "removed") {
       promises.push(
-        getFileContent(octokit, owner, repo, file.filename, prDetails.headSha)
-          .then((lines) => {
-            newContent = lines.join("\n");
-          })
+        getFileContent(
+          octokit,
+          owner,
+          repo,
+          file.filename,
+          prDetails.headSha
+        ).then((lines) => {
+          newContent = lines.join("\n");
+        })
       );
     }
 
@@ -85,6 +94,7 @@ function buildFullDiffContent(
 
   lines.push(`PR CONTEXT REVIEW: ${owner}/${repo} #${prNumber}`);
   lines.push("Note: This contains FULL file content with diff markers.");
+  lines.push("The [P:n] prefix shows the POSITION value to use for inline comments.");
   lines.push("=".repeat(50));
   lines.push("");
 
@@ -96,7 +106,7 @@ function buildFullDiffContent(
     if (!fileDiff.diff || fileDiff.diff.trim() === "") {
       lines.push("(No text changes detected or binary file)");
     } else {
-      lines.push(fileDiff.diff);
+      lines.push(addPositionsToDiff(fileDiff.diff));
     }
 
     lines.push("");
@@ -106,3 +116,35 @@ function buildFullDiffContent(
 
   return lines.join("\n");
 }
+
+function addPositionsToDiff(patch: string): string {
+  const lines = patch.split("\n");
+  const result: string[] = [];
+  let position = 0;
+  let inHunk = false;
+
+  for (const line of lines) {
+    // Check if this is a hunk header
+    if (line.startsWith("@@")) {
+      inHunk = true;
+      position = 0; // Reset position for each hunk
+      result.push(line);
+      continue;
+    }
+
+    // Before first hunk (file headers like --- and +++)
+    if (!inHunk) {
+      result.push(line);
+      continue;
+    }
+
+    // Inside a hunk - add position prefix
+    position++;
+    // Format: [P:position] original_line
+    result.push(`[P:${position}] ${line}`);
+  }
+
+  return result.join("\n");
+}
+
+

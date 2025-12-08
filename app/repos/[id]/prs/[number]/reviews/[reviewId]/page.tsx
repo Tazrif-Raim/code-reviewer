@@ -3,11 +3,12 @@
 import { createSupabaseServerClient } from "@/shared/utils/supabase/server";
 import { EReviewStatus } from "@/shared/typedef/enums";
 import { ReviewPolling } from "@/modules/reviews/components/reviewStatus";
+import { after } from "next/server";
 
 export default async function ReviewComments(
   props: PageProps<"/repos/[id]/prs/[number]/reviews/[reviewId]">
 ) {
-  const { reviewId } = await props.params;
+  const { reviewId, number, id } = await props.params;
   const supabase = await createSupabaseServerClient();
 
   const {
@@ -43,18 +44,37 @@ export default async function ReviewComments(
     );
   }
 
-  if (review.status === EReviewStatus.FAILED_TO_COMMENT) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <div className="text-yellow-500 text-6xl">!</div>
-        <h2 className="text-xl font-semibold">Failed to Comment on PR</h2>
-        <p className="text-muted-foreground">
-          The review was processed, but commenting on the Pull Request failed.
-          Please check the logs and try again.
-        </p>
-        <pre>{JSON.stringify(review.comments, null, 2)}</pre>
-      </div>
-    );
+  if (review.should_comment && review.comments !== null && review.commented_at === null) {
+    const reviewData = review.comments as {
+      body?: string;
+      event: "COMMENT";
+      comments?: Array<{
+        path: string;
+        position: number;
+        body: string;
+      }>;
+    };
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    after(async () => {
+      await fetch(`${baseUrl}/api/post-review`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
+        },
+        body: JSON.stringify({
+          reviewId,
+          pullNumber: Number(number),
+          repoId: id,
+          reviewBody: reviewData.body || "",
+          comments: reviewData.comments || [],
+          userId: user.id,
+          reviewEvent: reviewData.event,
+        }),
+      });
+    });
   }
 
   return <pre>{JSON.stringify(review.comments, null, 2)}</pre>;
