@@ -55,14 +55,14 @@ export default async function ReviewComments(
       }>;
     };
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL!;
 
     after(async () => {
       await fetch(`${baseUrl}/api/post-review`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
+          "x-internal-secret": process.env.INTERNAL_API_SECRET!,
         },
         body: JSON.stringify({
           reviewId,

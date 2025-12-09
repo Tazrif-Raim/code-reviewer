@@ -42,7 +42,6 @@ export async function POST(req: Request) {
   const token = decrypt(repo.fine_grained_token);
   const octokit = new Octokit({ auth: token });
 
-  // Comments already have position from AI, use directly
   const githubComments = comments.map((comment: { path: string; position: number; body: string }) => ({
     path: comment.path,
     position: comment.position,

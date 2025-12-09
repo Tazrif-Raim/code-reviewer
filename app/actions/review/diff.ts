@@ -1,13 +1,27 @@
 "use server";
 
 import { Octokit } from "octokit";
-import { createTwoFilesPatch } from "diff";
-import { getPrDetails, getPrFiles, getFileContent, PrDetails } from "./github";
+import { getPrDetails, getFileContent, PrDetails } from "./github";
 
 export interface FileDiff {
   filename: string;
-  status: string;
   diff: string;
+}
+
+interface HunkInfo {
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
+  positionStart: number;
+  lines: { position: number; content: string; type: "add" | "delete" | "context" }[];
+}
+
+interface FileDiffInfo {
+  filename: string;
+  hunks: HunkInfo[];
+  isNewFile: boolean;
+  isDeleted: boolean;
 }
 
 export async function generatePrDiff(
@@ -22,129 +36,222 @@ export async function generatePrDiff(
 }> {
   const prDetails = await getPrDetails(octokit, owner, repo, prNumber);
 
-  const files = await getPrFiles(octokit, owner, repo, prNumber);
+  const { data: rawDiff } = await octokit.rest.pulls.get({
+    owner,
+    repo,
+    pull_number: prNumber,
+    mediaType: {
+      format: "diff",
+    },
+  });
+
+  const diffString = rawDiff as unknown as string;
+
+  const fileDiffInfos = parseGitHubDiff(diffString);
 
   const diffs: FileDiff[] = [];
+  const fileOutputs: string[] = [];
 
-  for (const file of files) {
-    let oldContent = "";
-    let newContent = "";
+  for (const fileInfo of fileDiffInfos) {
+    const fileContent = fileInfo.isDeleted
+      ? []
+      : await getFileContent(octokit, owner, repo, fileInfo.filename, prDetails.headSha);
 
-    const promises: Promise<void>[] = [];
-
-    if (file.status !== "added") {
-      promises.push(
-        getFileContent(
-          octokit,
-          owner,
-          repo,
-          file.filename,
-          prDetails.baseSha
-        ).then((lines) => {
-          oldContent = lines.join("\n");
-        })
-      );
-    }
-
-    if (file.status !== "removed") {
-      promises.push(
-        getFileContent(
-          octokit,
-          owner,
-          repo,
-          file.filename,
-          prDetails.headSha
-        ).then((lines) => {
-          newContent = lines.join("\n");
-        })
-      );
-    }
-
-    await Promise.all(promises);
-
-    const patch = createTwoFilesPatch(
-      `a/${file.filename}`,
-      `b/${file.filename}`,
-      oldContent,
-      newContent,
-      "",
-      "",
-      { context: 99999 }
-    );
+    const mergedContent = mergeFileWithDiff(fileContent, fileInfo);
 
     diffs.push({
-      filename: file.filename,
-      status: file.status,
-      diff: patch,
+      filename: fileInfo.filename,
+      diff: mergedContent,
     });
+
+    fileOutputs.push(`FILE: ${fileInfo.filename}`);
+    if (fileInfo.isNewFile) fileOutputs.push("STATUS: NEW FILE");
+    if (fileInfo.isDeleted) fileOutputs.push("STATUS: DELETED");
+    fileOutputs.push("-".repeat(20));
+    fileOutputs.push(mergedContent);
+    fileOutputs.push("");
+    fileOutputs.push("=".repeat(50));
+    fileOutputs.push("");
   }
 
-  const fullDiffContent = buildFullDiffContent(owner, repo, prNumber, diffs);
+  const outputLines: string[] = [];
+  outputLines.push(`PR CONTEXT REVIEW: ${owner}/${repo} #${prNumber}`);
+  outputLines.push("");
+  outputLines.push("## How to read this diff:");
+  outputLines.push("- Lines with [P:n] prefix are from the diff and have POSITION values for inline comments");
+  outputLines.push("- Lines with [P:n] + are ADDED lines - you CAN comment on these");
+  outputLines.push("- Lines with [P:n] - are DELETED lines - you CAN comment on these");
+  outputLines.push("- Lines with [P:n] (no +/-) are CONTEXT lines - DO NOT comment on these");
+  outputLines.push("- Lines without [P:n] prefix are unchanged file content for reference only");
+  outputLines.push("- Use the EXACT position value from [P:n] when creating inline comments");
+  outputLines.push("");
+  outputLines.push("=".repeat(50));
+  outputLines.push("");
+  outputLines.push(...fileOutputs);
 
-  return { prDetails, diffs, fullDiffContent };
+  return { prDetails, diffs, fullDiffContent: outputLines.join("\n") };
 }
 
-function buildFullDiffContent(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  diffs: FileDiff[]
-): string {
-  const lines: string[] = [];
+function parseGitHubDiff(diffString: string): FileDiffInfo[] {
+  const lines = diffString.split("\n");
+  const files: FileDiffInfo[] = [];
 
-  lines.push(`PR CONTEXT REVIEW: ${owner}/${repo} #${prNumber}`);
-  lines.push("Note: This contains FULL file content with diff markers.");
-  lines.push("The [P:n] prefix shows the POSITION value to use for inline comments.");
-  lines.push("=".repeat(50));
-  lines.push("");
-
-  for (const fileDiff of diffs) {
-    lines.push(`FILE: ${fileDiff.filename}`);
-    lines.push(`STATUS: ${fileDiff.status.toUpperCase()}`);
-    lines.push("-".repeat(20));
-
-    if (!fileDiff.diff || fileDiff.diff.trim() === "") {
-      lines.push("(No text changes detected or binary file)");
-    } else {
-      lines.push(addPositionsToDiff(fileDiff.diff));
-    }
-
-    lines.push("");
-    lines.push("=".repeat(50));
-    lines.push("");
-  }
-
-  return lines.join("\n");
-}
-
-function addPositionsToDiff(patch: string): string {
-  const lines = patch.split("\n");
-  const result: string[] = [];
+  let currentFile: FileDiffInfo | null = null;
+  let currentHunk: HunkInfo | null = null;
   let position = 0;
-  let inHunk = false;
 
   for (const line of lines) {
-    // Check if this is a hunk header
-    if (line.startsWith("@@")) {
-      inHunk = true;
-      position = 0; // Reset position for each hunk
-      result.push(line);
+    if (line.startsWith("diff --git")) {
+      if (currentFile) {
+        if (currentHunk) currentFile.hunks.push(currentHunk);
+        files.push(currentFile);
+      }
+      const match = line.match(/diff --git a\/(.+) b\/(.+)/);
+      currentFile = {
+        filename: match ? match[2] : "unknown",
+        hunks: [],
+        isNewFile: false,
+        isDeleted: false,
+      };
+      currentHunk = null;
+      position = 0;
       continue;
     }
 
-    // Before first hunk (file headers like --- and +++)
-    if (!inHunk) {
-      result.push(line);
+    if (!currentFile) continue;
+
+    if (line.startsWith("new file mode")) {
+      currentFile.isNewFile = true;
+      continue;
+    }
+    if (line.startsWith("deleted file mode")) {
+      currentFile.isDeleted = true;
       continue;
     }
 
-    // Inside a hunk - add position prefix
-    position++;
-    // Format: [P:position] original_line
-    result.push(`[P:${position}] ${line}`);
+    const hunkMatch = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+    if (hunkMatch) {
+      if (currentHunk) currentFile.hunks.push(currentHunk);
+      currentHunk = {
+        oldStart: parseInt(hunkMatch[1], 10),
+        oldCount: parseInt(hunkMatch[2] || "1", 10),
+        newStart: parseInt(hunkMatch[3], 10),
+        newCount: parseInt(hunkMatch[4] || "1", 10),
+        positionStart: position + 1,
+        lines: [],
+      };
+      continue;
+    }
+
+    if (currentHunk) {
+      position++;
+      if (line.startsWith("+")) {
+        currentHunk.lines.push({ position, content: line.substring(1), type: "add" });
+      } else if (line.startsWith("-")) {
+        currentHunk.lines.push({ position, content: line.substring(1), type: "delete" });
+      } else if (line.startsWith(" ") || line === "") {
+        currentHunk.lines.push({ position, content: line.startsWith(" ") ? line.substring(1) : line, type: "context" });
+      }
+    }
   }
 
-  return result.join("\n");
+  if (currentFile) {
+    if (currentHunk) currentFile.hunks.push(currentHunk);
+    files.push(currentFile);
+  }
+
+  return files;
+}
+
+function mergeFileWithDiff(fileLines: string[], fileInfo: FileDiffInfo): string {
+  if (fileInfo.isNewFile || fileInfo.isDeleted) {
+    return formatDiffOnly(fileInfo);
+  }
+
+  interface LineInfo {
+    position: number;
+    type: "add" | "delete" | "context";
+    content: string;
+  }
+
+  const lineMap = new Map<number, LineInfo[]>();
+  const deletionsBeforeLine = new Map<number, LineInfo[]>();
+
+  for (const hunk of fileInfo.hunks) {
+    let newLineNum = hunk.newStart;
+
+    for (const line of hunk.lines) {
+      if (line.type === "delete") {
+        if (!deletionsBeforeLine.has(newLineNum)) {
+          deletionsBeforeLine.set(newLineNum, []);
+        }
+        deletionsBeforeLine.get(newLineNum)!.push({
+          position: line.position,
+          type: "delete",
+          content: line.content,
+        });
+      } else {
+        if (!lineMap.has(newLineNum)) {
+          lineMap.set(newLineNum, []);
+        }
+        lineMap.get(newLineNum)!.push({
+          position: line.position,
+          type: line.type,
+          content: line.content,
+        });
+        newLineNum++;
+      }
+    }
+  }
+
+  const output: string[] = [];
+  
+  for (let i = 0; i < fileLines.length; i++) {
+    const lineNum = i + 1;
+    const fileLine = fileLines[i];
+
+    const deletions = deletionsBeforeLine.get(lineNum);
+    if (deletions) {
+      for (const del of deletions) {
+        output.push(`[P:${del.position}] -${del.content}`);
+      }
+    }
+
+    const diffLines = lineMap.get(lineNum);
+    if (diffLines && diffLines.length > 0) {
+      const diffLine = diffLines[0];
+      if (diffLine.type === "add") {
+        output.push(`[P:${diffLine.position}] +${fileLine}`);
+      } else {
+        output.push(`[P:${diffLine.position}]  ${fileLine}`);
+      }
+    } else {
+      output.push(`     ${fileLine}`);
+    }
+  }
+
+  const maxLine = fileLines.length + 1;
+  const trailingDeletions = deletionsBeforeLine.get(maxLine);
+  if (trailingDeletions) {
+    for (const del of trailingDeletions) {
+      output.push(`[P:${del.position}] -${del.content}`);
+    }
+  }
+
+  return output.join("\n");
+}
+
+function formatDiffOnly(fileInfo: FileDiffInfo): string {
+  const output: string[] = [];
+
+  for (const hunk of fileInfo.hunks) {
+    for (const line of hunk.lines) {
+      const prefix = line.type === "add" ? "+" : line.type === "delete" ? "-" : " ";
+      output.push(`[P:${line.position}] ${prefix}${line.content}`);
+    }
+  }
+
+  return output.join("\n");
 }
 
 
