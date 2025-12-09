@@ -15,6 +15,7 @@ export interface StartReviewInput {
   reviewRuleIds: string[];
   customPrompt?: string;
   shouldComment: boolean;
+  aiModel: string;
 }
 
 export interface StartReviewResult {
@@ -113,7 +114,6 @@ export async function startReview(
     }
 
     after(async () => {
-      console.log("Starting background preparation for review:", review.id);
       await processReview({
         reviewId: review.id,
         userId: user.id,
@@ -125,6 +125,7 @@ export async function startReview(
         reviewRuleIds: input.reviewRuleIds,
         customPrompt: input.customPrompt,
         shouldComment: input.shouldComment,
+        aiModel: input.aiModel,
       });
     });
 
@@ -146,6 +147,7 @@ interface ProcessReviewInput {
   reviewRuleIds: string[];
   shouldComment: boolean;
   customPrompt?: string;
+  aiModel: string;
 }
 
 async function processReview(input: ProcessReviewInput): Promise<void> {
@@ -191,25 +193,30 @@ async function processReview(input: ProcessReviewInput): Promise<void> {
       );
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const llmKey = decrypt(userSecret.llm_api_key);
 
-    const res = await fetch(`${baseUrl}/api/process-review`, {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/process-review`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-secret-key": process.env.INTERNAL_API_SECRET || "",
+        "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
       },
       body: JSON.stringify({
         reviewId: input.reviewId,
         prompt,
-        encryptedLlmKey: userSecret.llm_api_key,
-        shouldComment: input.shouldComment,
-        githubToken: input.token,
+        llmApiKey: llmKey,
+        aiModel: input.aiModel,
       }),
+    }).catch((error) => {
+      console.error("Failed to invoke edge function:", error);
+      throw error;
     });
 
     if (!res.ok) {
-      throw new Error(`Failed to queue review processing`);
+      const errorText = await res.text();
+      throw new Error(`Edge function error: ${errorText}`);
     }
   } catch (error) {
     console.error("Process review error:", error);

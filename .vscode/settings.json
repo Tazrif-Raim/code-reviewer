@@ -1,0 +1,16 @@
+{
+  // Disable Deno globally to avoid breaking your frontend (React/Next.js/Vue)
+  "deno.enable": false,
+
+  // Enable Deno ONLY for the supabase functions directory
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+
+  // Enable Deno's built-in linting and formatting
+  "deno.lint": true,
+  "editor.defaultFormatter": "denoland.vscode-deno",
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  }
+}
