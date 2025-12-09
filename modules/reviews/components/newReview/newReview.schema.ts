@@ -20,7 +20,7 @@ export const newReviewSchema = z.object({
     .string()
     .max(5000, "Custom prompt must be at most 5000 characters")
     .optional(),
-  model: z.string().min(1, "Please select your spoken language."),
+  model: z.string().min(1, "Please select an AI model"),
 });
 
 export const newReviewResolver = zodResolver(newReviewSchema);
