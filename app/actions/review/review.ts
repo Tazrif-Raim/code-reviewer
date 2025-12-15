@@ -8,6 +8,7 @@ import { generatePrDiff } from "./diff";
 import { buildReviewPrompt, ReviewRule } from "./prompt";
 import { EReviewStatus } from "@/shared/typedef/enums";
 import { after } from "next/server";
+import { EXTERNAL_AI_MODEL_PREFIX } from "@/shared/typedef/constants";
 
 export interface StartReviewInput {
   repoId: string;
@@ -21,11 +22,12 @@ export interface StartReviewInput {
 export interface StartReviewResult {
   success: boolean;
   reviewId?: string;
+  prompt?: string;
   error?: string;
 }
 
 export async function startReview(
-  input: StartReviewInput
+  input: StartReviewInput,
 ): Promise<StartReviewResult> {
   const supabase = await createSupabaseServerClient();
 
@@ -57,14 +59,14 @@ export async function startReview(
       octokit,
       repo.owner_name,
       repo.repo_name,
-      input.githubPrNumber
+      input.githubPrNumber,
     );
 
     const latestCommit = await getLatestCommit(
       octokit,
       repo.owner_name,
       repo.repo_name,
-      prDetails.headSha
+      prDetails.headSha,
     );
 
     let { data: reviewedPr } = await supabase
@@ -113,23 +115,33 @@ export async function startReview(
       return { success: false, error: "Failed to create review record" };
     }
 
-    after(async () => {
-      await processReview({
-        reviewId: review.id,
-        userId: user.id,
-        repoId: input.repoId,
-        prNumber: input.githubPrNumber,
-        owner: repo.owner_name,
-        repoName: repo.repo_name,
-        token,
-        reviewRuleIds: input.reviewRuleIds,
-        customPrompt: input.customPrompt,
-        shouldComment: input.shouldComment,
-        aiModel: input.aiModel,
-      });
-    });
+    const reviewParams = {
+      reviewId: review.id,
+      userId: user.id,
+      repoId: input.repoId,
+      prNumber: input.githubPrNumber,
+      owner: repo.owner_name,
+      repoName: repo.repo_name,
+      token,
+      reviewRuleIds: input.reviewRuleIds,
+      customPrompt: input.customPrompt,
+      shouldComment: input.shouldComment,
+      aiModel: input.aiModel,
+    };
 
-    return { success: true, reviewId: review.id };
+    if (input.aiModel.startsWith(EXTERNAL_AI_MODEL_PREFIX)) {
+      const prompt = await processReview(reviewParams);
+      return {
+        success: true,
+        reviewId: review.id,
+        prompt: prompt ?? undefined,
+      };
+    } else {
+      after(async () => {
+        await processReview(reviewParams);
+      });
+      return { success: true, reviewId: review.id };
+    }
   } catch (error) {
     console.error("Start review error:", error);
     return { success: false, error: String(error) };
@@ -150,7 +162,9 @@ interface ProcessReviewInput {
   aiModel: string;
 }
 
-async function processReview(input: ProcessReviewInput): Promise<void> {
+async function processReview(
+  input: ProcessReviewInput,
+): Promise<void | string> {
   const supabase = await createSupabaseServerClient();
   const octokit = new Octokit({ auth: input.token });
 
@@ -159,7 +173,7 @@ async function processReview(input: ProcessReviewInput): Promise<void> {
       octokit,
       input.owner,
       input.repoName,
-      input.prNumber
+      input.prNumber,
     );
 
     let reviewRules: ReviewRule[] = [];
@@ -178,45 +192,49 @@ async function processReview(input: ProcessReviewInput): Promise<void> {
     const prompt = await buildReviewPrompt(
       fullDiffContent,
       reviewRules,
-      input.customPrompt
+      input.customPrompt,
     );
 
-    const { data: userSecret, error: secretError } = await supabase
-      .from("user_secrets")
-      .select("llm_api_key, llm_provider")
-      .eq("user_id", input.userId)
-      .single();
+    if (!input.aiModel.startsWith(EXTERNAL_AI_MODEL_PREFIX)) {
+      const { data: userSecret, error: secretError } = await supabase
+        .from("user_secrets")
+        .select("llm_api_key, llm_provider")
+        .eq("user_id", input.userId)
+        .single();
 
-    if (secretError || !userSecret) {
-      throw new Error(
-        "Gemini API key not found. Please add your API key in settings."
-      );
-    }
+      if (secretError || !userSecret) {
+        throw new Error(
+          "Gemini API key not found. Please add your API key in settings.",
+        );
+      }
 
-    const llmKey = decrypt(userSecret.llm_api_key);
+      const llmKey = decrypt(userSecret.llm_api_key);
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-    const res = await fetch(`${supabaseUrl}/functions/v1/process-review`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
-      },
-      body: JSON.stringify({
-        reviewId: input.reviewId,
-        prompt,
-        llmApiKey: llmKey,
-        aiModel: input.aiModel,
-      }),
-    }).catch((error) => {
-      console.error("Failed to invoke edge function:", error);
-      throw error;
-    });
+      const res = await fetch(`${supabaseUrl}/functions/v1/process-review`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
+        },
+        body: JSON.stringify({
+          reviewId: input.reviewId,
+          prompt,
+          llmApiKey: llmKey,
+          aiModel: input.aiModel,
+        }),
+      }).catch((error) => {
+        console.error("Failed to invoke edge function:", error);
+        throw error;
+      });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Edge function error: ${errorText}`);
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Edge function error: ${errorText}`);
+      }
+    } else {
+      return prompt;
     }
   } catch (error) {
     console.error("Process review error:", error);
