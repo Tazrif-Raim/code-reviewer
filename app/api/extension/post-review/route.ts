@@ -32,19 +32,17 @@ export async function POST(req: Request) {
       shouldComment,
     } = await req.json();
 
-    let parsedReviewData = reviewData;
-    if (typeof reviewData === "string") {
-      try {
-        parsedReviewData = JSON.parse(reviewData);
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Invalid reviewData format" }),
-          { status: 400, headers: corsHeaders(origin) },
-        );
-      }
+    let parsedReviewData = null;
+    try {
+      parsedReviewData = JSON.parse(JSON.stringify(reviewData));
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid review data format" }),
+        { status: 400, headers: corsHeaders(origin) },
+      );
     }
 
-    const { body, event, comments } = parsedReviewData || {};
+    const { body, event, comments } = parsedReviewData;
 
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -122,7 +120,6 @@ export async function POST(req: Request) {
       { status: 200, headers: corsHeaders(origin) },
     );
   } catch (error) {
-    console.error("Extension post-review error:", error);
     return new Response(
       JSON.stringify({ error: "Internal Server Error" }),
       { status: 500, headers: corsHeaders(origin) },
