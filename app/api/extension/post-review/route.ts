@@ -32,12 +32,56 @@ export async function POST(req: Request) {
       shouldComment,
     } = await req.json();
 
-    let parsedReviewData = null;
-    try {
-      parsedReviewData = JSON.parse(JSON.stringify(reviewData));
-    } catch {
+    let parsedReviewData = reviewData;
+    if (reviewData && typeof reviewData === "string") {
+      try {
+        let cleanData = reviewData.trim();
+
+        const jsonBlockMatch = cleanData.match(
+          /```(?:json)?\s*([\s\S]*?)\s*```/,
+        );
+        if (jsonBlockMatch) {
+          cleanData = jsonBlockMatch[1];
+        }
+
+        const firstBrace = cleanData.indexOf("{");
+        const lastBrace = cleanData.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          cleanData = cleanData.substring(firstBrace, lastBrace + 1);
+        }
+
+        cleanData = cleanData.replace(/,(\s*[}\]])/g, "$1");
+
+        try {
+          parsedReviewData = JSON.parse(cleanData);
+        } catch (e) {
+          const sanitized = sanitizeJson(cleanData);
+          parsedReviewData = JSON.parse(sanitized);
+        }
+
+        if (typeof parsedReviewData === "string") {
+          try {
+            parsedReviewData = JSON.parse(parsedReviewData);
+          } catch (e) {
+            // Ignore
+          }
+        }
+      } catch (error) {
+        console.error("JSON Parse Error:", error);
+        console.error("Problematic Data:", reviewData);
+        return new Response(
+          JSON.stringify({
+            error: "Invalid reviewData format",
+            details: String(error),
+          }),
+          { status: 400, headers: corsHeaders(origin) },
+        );
+      }
+    }
+
+    if (!parsedReviewData || typeof parsedReviewData !== "object") {
       return new Response(
-        JSON.stringify({ error: "Invalid review data format" }),
+        JSON.stringify({ error: "reviewData must be a valid JSON object" }),
         { status: 400, headers: corsHeaders(origin) },
       );
     }
@@ -120,9 +164,65 @@ export async function POST(req: Request) {
       { status: 200, headers: corsHeaders(origin) },
     );
   } catch (error) {
+    console.error("Extension post-review error:", error);
     return new Response(
       JSON.stringify({ error: "Internal Server Error" }),
       { status: 500, headers: corsHeaders(origin) },
     );
   }
+}
+
+function sanitizeJson(jsonString: string): string {
+  let inString = false;
+  let result = "";
+
+  for (let i = 0; i < jsonString.length; i++) {
+    const char = jsonString[i];
+
+    if (char === '"') {
+      // Check if this quote is escaped by counting preceding backslashes
+      let backslashCount = 0;
+      let j = i - 1;
+      while (j >= 0 && jsonString[j] === "\\") {
+        backslashCount++;
+        j--;
+      }
+
+      // If odd number of backslashes, it's escaped
+      if (backslashCount % 2 === 1) {
+        result += char;
+        continue;
+      }
+
+      // It's an unescaped quote. Is it structural?
+      if (inString) {
+        // We are inside a string. Does this quote end it?
+        // Check next non-whitespace char
+        let nextCharIndex = i + 1;
+        while (
+          nextCharIndex < jsonString.length &&
+          /\s/.test(jsonString[nextCharIndex])
+        ) {
+          nextCharIndex++;
+        }
+        const nextChar = jsonString[nextCharIndex];
+
+        if (nextChar && [":", ",", "}", "]"].includes(nextChar)) {
+          // Looks like a closing quote
+          inString = false;
+          result += char;
+        } else {
+          // Doesn't look like a closing quote, escape it
+          result += '\\"';
+        }
+      } else {
+        // We are not inside a string. This must be an opening quote.
+        inString = true;
+        result += char;
+      }
+    } else {
+      result += char;
+    }
+  }
+  return result;
 }
