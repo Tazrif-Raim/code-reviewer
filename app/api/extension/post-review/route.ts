@@ -32,20 +32,34 @@ export async function POST(req: Request) {
       shouldComment,
     } = await req.json();
 
+    let parsedReviewData = reviewData;
+    if (typeof reviewData === "string") {
+      try {
+        parsedReviewData = JSON.parse(reviewData);
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: "Invalid reviewData format" }),
+          { status: 400, headers: corsHeaders(origin) },
+        );
+      }
+    }
+
+    const { body, event, comments } = parsedReviewData || {};
+
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: corsHeaders(origin) }
+        { status: 401, headers: corsHeaders(origin) },
       );
     }
 
     const { error: updateError } = await supabase
       .from("reviews")
       .update({
-        comments: reviewData,
+        comments: parsedReviewData,
         status: EReviewStatus.COMPLETED,
         updated_at: new Date().toISOString(),
       })
@@ -55,7 +69,7 @@ export async function POST(req: Request) {
     if (updateError) {
       return new Response(
         JSON.stringify({ error: "Failed to update review" }),
-        { status: 500, headers: corsHeaders(origin) }
+        { status: 500, headers: corsHeaders(origin) },
       );
     }
 
@@ -70,14 +84,16 @@ export async function POST(req: Request) {
       if (repoError || !repo) {
         return new Response(
           JSON.stringify({ error: "Repository not found" }),
-          { status: 404, headers: corsHeaders(origin) }
+          { status: 404, headers: corsHeaders(origin) },
         );
       }
 
       const token = decrypt(repo.fine_grained_token);
       const octokit = new Octokit({ auth: token });
 
-      const githubComments = reviewData.comments?.map((comment: { path: string; position: number; body: string }) => ({
+      const githubComments = comments?.map((
+        comment: { path: string; position: number; body: string },
+      ) => ({
         path: comment.path,
         position: comment.position,
         body: comment.body,
@@ -87,8 +103,8 @@ export async function POST(req: Request) {
         owner: repo.owner_name,
         repo: repo.repo_name,
         pull_number: pullNumber,
-        event: reviewData.event,
-        body: reviewData.body,
+        event: event || "COMMENT",
+        body: body || "",
         comments: githubComments,
       });
 
@@ -103,14 +119,13 @@ export async function POST(req: Request) {
 
     return new Response(
       JSON.stringify({ success: true }),
-      { status: 200, headers: corsHeaders(origin) }
+      { status: 200, headers: corsHeaders(origin) },
     );
-
   } catch (error) {
     console.error("Extension post-review error:", error);
     return new Response(
       JSON.stringify({ error: "Internal Server Error" }),
-      { status: 500, headers: corsHeaders(origin) }
+      { status: 500, headers: corsHeaders(origin) },
     );
   }
 }
