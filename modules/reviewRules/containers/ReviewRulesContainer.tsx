@@ -5,8 +5,7 @@ import { ListReviewRules } from "../components/ListReviewRules/ListReviewRules";
 export function ReviewRulesContainer() {
   return (
     <>
-      <h1>Review Rules Page</h1>
-      <Button asChild>
+      <Button variant="outline" asChild>
         <Link href="/review-rules/new">Add Review Rule</Link>
       </Button>
       <div className="my-10 grid place-items-center">

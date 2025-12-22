@@ -16,8 +16,13 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Controller } from "react-hook-form";
 import { useState } from "react";
 import { KeyRoundIcon } from "lucide-react";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 
-export function LlmApiKeyDialog() {
+export function LlmApiKeyDialog({
+  hasSetLlmApiKey,
+}: {
+  hasSetLlmApiKey?: boolean;
+}) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { form, handleSubmit } = useLlmApiKeyForm({ setIsDialogOpen });
 
@@ -25,9 +30,14 @@ export function LlmApiKeyDialog() {
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <form id="llm-api-key-form" onSubmit={handleSubmit}>
         <DialogTrigger asChild>
-          <Button variant="outline">
+          <SidebarMenuButton>
             <KeyRoundIcon className="not-dark:text-black" />
-          </Button>
+            {hasSetLlmApiKey ? (
+              <span>Change Gemini API Key</span>
+            ) : (
+              <span>Set Gemini API Key</span>
+            )}
+          </SidebarMenuButton>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>

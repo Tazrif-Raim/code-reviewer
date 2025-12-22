@@ -11,7 +11,7 @@ export function ReviewsContainer({
 }) {
   return (
     <>
-      <Button asChild>
+      <Button variant="outline" asChild>
         <Link href={`/repos/${repoId}/prs/${githubPrNumber}/reviews/new`}>
           New Review
         </Link>
