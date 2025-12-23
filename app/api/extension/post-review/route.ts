@@ -54,11 +54,14 @@ export async function POST(req: Request) {
           })
           .trim();
 
-        const jsonBlockMatch = cleanData.match(
-          /```(?:json)?\s*([\s\S]*?)\s*```/,
-        );
-        if (jsonBlockMatch) {
-          cleanData = jsonBlockMatch[1];
+        // Only extract from markdown code block if the string doesn't already look like JSON
+        if (!cleanData.startsWith("{") && !cleanData.startsWith("[")) {
+          const jsonBlockMatch = cleanData.match(
+            /```(?:json)?\s*([\s\S]*?)\s*```/,
+          );
+          if (jsonBlockMatch) {
+            cleanData = jsonBlockMatch[1];
+          }
         }
 
         // Debug: log cleanData before parsing
