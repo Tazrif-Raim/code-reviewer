@@ -44,19 +44,27 @@ export async function POST(req: Request) {
           cleanData = jsonBlockMatch[1];
         }
 
-        const firstBrace = cleanData.indexOf("{");
-        const lastBrace = cleanData.lastIndexOf("}");
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          cleanData = cleanData.substring(firstBrace, lastBrace + 1);
-        }
-
-        cleanData = cleanData.replace(/,(\s*[}\]])/g, "$1");
-
         try {
           parsedReviewData = JSON.parse(cleanData);
         } catch (e) {
-          const sanitized = sanitizeJson(cleanData);
-          parsedReviewData = JSON.parse(sanitized);
+          const firstBrace = cleanData.indexOf("{");
+          const lastBrace = cleanData.lastIndexOf("}");
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            cleanData = cleanData.substring(firstBrace, lastBrace + 1);
+          }
+
+          try {
+            parsedReviewData = JSON.parse(cleanData);
+          } catch (e) {
+            cleanData = cleanData.replace(/,(\s*[}\]])/g, "$1");
+
+            try {
+              parsedReviewData = JSON.parse(cleanData);
+            } catch (e) {
+              const sanitized = sanitizeJson(cleanData);
+              parsedReviewData = JSON.parse(sanitized);
+            }
+          }
         }
 
         if (typeof parsedReviewData === "string") {
