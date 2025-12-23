@@ -61,6 +61,13 @@ export async function POST(req: Request) {
           cleanData = jsonBlockMatch[1];
         }
 
+        // Debug: log cleanData before parsing
+        console.log("cleanData first 50 chars:", JSON.stringify(cleanData.slice(0, 50)));
+        console.log(
+          "cleanData first 10 char codes:",
+          [...cleanData.slice(0, 10)].map((c) => c.charCodeAt(0)),
+        );
+
         try {
           parsedReviewData = JSON.parse(cleanData);
         } catch (e) {
