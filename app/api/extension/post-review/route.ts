@@ -33,12 +33,25 @@ export async function POST(req: Request) {
     } = await req.json();
 
     let parsedReviewData = reviewData;
+    
+    // Debug: log the type and structure of reviewData
+    console.log("reviewData type:", typeof reviewData);
+    console.log("reviewData is array:", Array.isArray(reviewData));
+    if (typeof reviewData === "string") {
+      console.log("reviewData length:", reviewData.length);
+      console.log("First 50 chars:", JSON.stringify(reviewData.slice(0, 50)));
+    }
+
     if (reviewData && typeof reviewData === "string") {
       try {
+        // Remove BOM, zero-width spaces, and other invisible characters from entire string
         let cleanData = reviewData
-          .replace(/^\uFEFF/, "")
-          .replace(/^\u200B/, "")
-          .replace(/^[\s\u00A0\u2000-\u200D\uFEFF]+/, "")
+          .replace(/[\uFEFF\u200B\u200C\u200D\u2060\u00A0]/g, "") // Remove invisible chars everywhere
+          .replace(/[\x00-\x1F\x7F]/g, (match) => {
+            // Keep valid whitespace (tab, newline, carriage return), remove other control chars
+            if (match === "\t" || match === "\n" || match === "\r") return match;
+            return "";
+          })
           .trim();
 
         const jsonBlockMatch = cleanData.match(
@@ -81,6 +94,11 @@ export async function POST(req: Request) {
       } catch (error) {
         console.error("JSON Parse Error:", error);
         console.error("Problematic Data:", reviewData);
+        // Log first 10 character codes to identify invisible characters
+        console.error(
+          "First 10 char codes:",
+          [...reviewData.slice(0, 10)].map((c) => c.charCodeAt(0)),
+        );
         return new Response(
           JSON.stringify({
             error: "Invalid reviewData format",
