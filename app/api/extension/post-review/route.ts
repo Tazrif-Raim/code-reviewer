@@ -35,7 +35,11 @@ export async function POST(req: Request) {
     let parsedReviewData = reviewData;
     if (reviewData && typeof reviewData === "string") {
       try {
-        let cleanData = reviewData.trim();
+        let cleanData = reviewData
+          .replace(/^\uFEFF/, "")
+          .replace(/^\u200B/, "")
+          .replace(/^[\s\u00A0\u2000-\u200D\uFEFF]+/, "")
+          .trim();
 
         const jsonBlockMatch = cleanData.match(
           /```(?:json)?\s*([\s\S]*?)\s*```/,
