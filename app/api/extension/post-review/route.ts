@@ -33,28 +33,17 @@ export async function POST(req: Request) {
     } = await req.json();
 
     let parsedReviewData = reviewData;
-    
-    // Debug: log the type and structure of reviewData
-    console.log("reviewData type:", typeof reviewData);
-    console.log("reviewData is array:", Array.isArray(reviewData));
-    if (typeof reviewData === "string") {
-      console.log("reviewData length:", reviewData.length);
-      console.log("First 50 chars:", JSON.stringify(reviewData.slice(0, 50)));
-    }
 
     if (reviewData && typeof reviewData === "string") {
       try {
-        // Remove BOM, zero-width spaces, and other invisible characters from entire string
         let cleanData = reviewData
-          .replace(/[\uFEFF\u200B\u200C\u200D\u2060\u00A0]/g, "") // Remove invisible chars everywhere
+          .replace(/[\uFEFF\u200B\u200C\u200D\u2060\u00A0]/g, "")
           .replace(/[\x00-\x1F\x7F]/g, (match) => {
-            // Keep valid whitespace (tab, newline, carriage return), remove other control chars
             if (match === "\t" || match === "\n" || match === "\r") return match;
             return "";
           })
           .trim();
 
-        // Only extract from markdown code block if the string doesn't already look like JSON
         if (!cleanData.startsWith("{") && !cleanData.startsWith("[")) {
           const jsonBlockMatch = cleanData.match(
             /```(?:json)?\s*([\s\S]*?)\s*```/,
@@ -63,13 +52,6 @@ export async function POST(req: Request) {
             cleanData = jsonBlockMatch[1];
           }
         }
-
-        // Debug: log cleanData before parsing
-        console.log("cleanData first 50 chars:", JSON.stringify(cleanData.slice(0, 50)));
-        console.log(
-          "cleanData first 10 char codes:",
-          [...cleanData.slice(0, 10)].map((c) => c.charCodeAt(0)),
-        );
 
         try {
           parsedReviewData = JSON.parse(cleanData);
@@ -104,11 +86,6 @@ export async function POST(req: Request) {
       } catch (error) {
         console.error("JSON Parse Error:", error);
         console.error("Problematic Data:", reviewData);
-        // Log first 10 character codes to identify invisible characters
-        console.error(
-          "First 10 char codes:",
-          [...reviewData.slice(0, 10)].map((c) => c.charCodeAt(0)),
-        );
         return new Response(
           JSON.stringify({
             error: "Invalid reviewData format",
@@ -220,7 +197,6 @@ function sanitizeJson(jsonString: string): string {
     const char = jsonString[i];
 
     if (char === '"') {
-      // Check if this quote is escaped by counting preceding backslashes
       let backslashCount = 0;
       let j = i - 1;
       while (j >= 0 && jsonString[j] === "\\") {
@@ -228,16 +204,12 @@ function sanitizeJson(jsonString: string): string {
         j--;
       }
 
-      // If odd number of backslashes, it's escaped
       if (backslashCount % 2 === 1) {
         result += char;
         continue;
       }
 
-      // It's an unescaped quote. Is it structural?
       if (inString) {
-        // We are inside a string. Does this quote end it?
-        // Check next non-whitespace char
         let nextCharIndex = i + 1;
         while (
           nextCharIndex < jsonString.length &&
@@ -248,15 +220,12 @@ function sanitizeJson(jsonString: string): string {
         const nextChar = jsonString[nextCharIndex];
 
         if (nextChar && [":", ",", "}", "]"].includes(nextChar)) {
-          // Looks like a closing quote
           inString = false;
           result += char;
         } else {
-          // Doesn't look like a closing quote, escape it
           result += '\\"';
         }
       } else {
-        // We are not inside a string. This must be an opening quote.
         inString = true;
         result += char;
       }
